@@ -1,0 +1,13 @@
+version: "3.8"
+services:
+  mysql:
+    image: mysql:8.3.0
+    restart: always
+    command: --default-authentication-plugin=caching_sha2_password
+    environment:
+      MYSQL_DATABASE: "dbx"
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    ports:
+      - "33066:3306"
+    volumes:
+      - .local/mysql:/var/lib/mysql
