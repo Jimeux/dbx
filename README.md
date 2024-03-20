@@ -17,7 +17,7 @@ GOEXPERIMENT=rangefunc SQLX_MYSQL_DSN=root:@tcp(localhost:33066)/dbx go test -be
 ```go
 // loop through iterator directly to populate a map
 byName := make(map[string]Person)
-for p, err := range Select[Person](ctx, db, selectPersonQuery) {
+for p, err := range dbx.Select[Person](ctx, db, "SELECT * FROM person") {
     if err != nil {
         return
     }
@@ -27,17 +27,17 @@ for p, err := range Select[Person](ctx, db, selectPersonQuery) {
 
 ```go
 // collect results into a slice
-people, err := Select[Person](ctx, db, selectPersonQuery).Slice()
+people, err := dbx.Select[Person](ctx, db, "SELECT * FROM person").Slice()
 ```
 
 ```go
 // collect results into a slice with specified capacity
-people, err := Select[Person](ctx, db, selectPersonQuery).SliceCap(limit)
+people, err := dbx.Select[Person](ctx, db, "SELECT * FROM person LIMIT ?", limit).SliceCap(limit)
 ```
 
 ```go
 // filter results in memory and collect into a slice
-people, err = Select[Person](ctx, db, selectPersonQuery).
+people, err := dbx.Select[Person](ctx, db, "SELECT * FROM person").
     Filter(func(p Person) bool { return p.Email != "" }).
     SliceCap(10)
 ```
