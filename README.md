@@ -1,13 +1,13 @@
 # dbx
 
-### Iterator-based [database/sql](https://pkg.go.dev/database/sql) helpers based on [sqlx](https://github.com/jmoiron/sqlx) 
+### Iterator-based [database/sql](https://pkg.go.dev/database/sql) helpers inspired by [sqlx](https://github.com/jmoiron/sqlx) 
 
 ## Run
 
 ```bash
 docker compose up -d
-GOEXPERIMENT=rangefunc SQLX_MYSQL_DSN=root:@tcp(localhost:33066)/dbx go test ./...
-GOEXPERIMENT=rangefunc SQLX_MYSQL_DSN=root:@tcp(localhost:33066)/dbx go test -bench=. -benchmem 
+SQLX_MYSQL_DSN=root:@tcp(localhost:33066)/dbx go test ./...
+SQLX_MYSQL_DSN=root:@tcp(localhost:33066)/dbx go test -bench=. -benchmem 
 ```
 
 ## Examples
@@ -25,17 +25,17 @@ for p, err := range dbx.Select[Person](ctx, db, "SELECT * FROM person") {
 
 ```go
 // collect results into a slice
-people, err := dbx.Select[Person](ctx, db, "SELECT * FROM person").Slice()
+people, err := dbx.Select[Person](ctx, db, "SELECT * FROM person").Collect()
 ```
 
 ```go
 // collect results into a slice with specified capacity
-people, err := dbx.Select[Person](ctx, db, "SELECT * FROM person LIMIT ?", limit).SliceCap(limit)
+people, err := dbx.Select[Person](ctx, db, "SELECT * FROM person LIMIT ?", limit).CollectCap(limit)
 ```
 
 ```go
 // filter results in memory and collect into a slice
 people, err := dbx.Select[Person](ctx, db, "SELECT * FROM person").
     Filter(func(p Person) bool { return p.Email != "" }).
-    SliceCap(10)
+    CollectCap(10)
 ```

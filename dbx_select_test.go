@@ -30,7 +30,7 @@ func ExampleSelect() {
 	_ = byName
 
 	// collect results into a slice
-	people, err := Select[Person](ctx, db, selectPersonQuery).Slice()
+	people, err := Select[Person](ctx, db, selectPersonQuery).Collect()
 	if err != nil {
 		return
 	}
@@ -39,7 +39,7 @@ func ExampleSelect() {
 	// filter results in memory and collect into a slice
 	people, err = Select[Person](ctx, db, selectPersonQuery).
 		Filter(func(p Person) bool { return p.Email != "" }).
-		SliceCap(10)
+		CollectCap(10)
 	if err != nil {
 		return
 	}
@@ -71,7 +71,7 @@ func TestSelect(t *testing.T) {
 
 func testSelect[T any](t *testing.T, ctx context.Context, query string, db *sql.DB, want T, wantLen int) {
 	t.Helper()
-	got, err := Select[T](ctx, db, query).SliceCap(20)
+	got, err := Select[T](ctx, db, query).CollectCap(20)
 	if err != nil {
 		t.Fatalf("got %+v want nil", err)
 	}
@@ -107,7 +107,7 @@ func benchmarkSelect[T any](b *testing.B, ctx context.Context, query string, db 
 	runtime.GC()
 	b.ResetTimer()
 	for range b.N {
-		got, err := Select[T](ctx, db, query).SliceCap(want)
+		got, err := Select[T](ctx, db, query).CollectCap(want)
 		if err != nil {
 			b.Fatalf("got %+v want nil", err)
 		}

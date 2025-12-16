@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-// A FieldInfo is metadata for a struct field.
+// A FieldInfo is metadata for a struct field stored as a bidirectional tree.
 type FieldInfo struct {
 	// Traversal stores the index-based traversal path to the field
 	// within the struct. For example, if the field is at
