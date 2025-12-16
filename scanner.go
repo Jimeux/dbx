@@ -59,7 +59,7 @@ func scan[T any](ctx context.Context, q Queryer, query string, args ...any) iter
 
 			fields := m.TraversalsByName(base, columns)
 			// if we are not unsafe and are missing fields, return an error
-			if f, err := missingFields(fields); err != nil && isUnsafe {
+			if f, err := missingFields(fields); err != nil && !isUnsafe {
 				var t T
 				yield(t, fmt.Errorf("missing destination name %s in %T", columns[f], base))
 				return
