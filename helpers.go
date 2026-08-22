@@ -7,7 +7,7 @@ import (
 
 // derefType is Indirect for reflect.Types
 func derefType(t reflect.Type) reflect.Type {
-	if t.Kind() == reflect.Ptr {
+	if t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	return t
@@ -33,17 +33,11 @@ func parseName(field reflect.StructField, tagName string, mapFunc, tagMapFunc ma
 	}
 
 	// if this tag is not set using the normal convention in the tag,
-	// then return the fieldname..  this check is done because according
-	// to the reflect documentation:
-	//    If the tag does not have the conventional format,
-	//    the value returned by Get is unspecified.
-	// which doesn't sound great.
-	if !strings.Contains(string(field.Tag), tagName+":") {
+	// then return the fieldname.
+	tag, ok := field.Tag.Lookup(tagName)
+	if !ok {
 		return "", fieldName
 	}
-
-	// at this point we're fairly sure that we have a tag, so lets pull it out
-	tag = field.Tag.Get(tagName)
 
 	// if we have a mapper function, call it on the whole tag
 	// XXX: this is a change from the old version, which pulled out the name

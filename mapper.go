@@ -32,7 +32,7 @@ func (f *FieldInfo) IsRecursive() bool {
 
 func (f *FieldInfo) IsStruct() bool {
 	return f.Zero.Kind() == reflect.Struct ||
-		(f.Zero.Kind() == reflect.Ptr && f.Zero.Type().Elem().Kind() == reflect.Struct)
+		(f.Zero.Kind() == reflect.Pointer && f.Zero.Type().Elem().Kind() == reflect.Struct)
 }
 
 // A StructMap is an index of field metadata for a struct.
@@ -100,8 +100,8 @@ func (m *Mapper) TraversalsByName(t reflect.Type, names []string) [][]int {
 
 // typeQueue holds state for the BFS of the fields of a struct.
 type typeQueue struct {
-	t          reflect.Type
-	fi         *FieldInfo
+	typ        reflect.Type
+	fieldInfo  *FieldInfo
 	parentPath string
 }
 
@@ -110,7 +110,7 @@ type typeQueue struct {
 // - mapFunc processes field names without tags f(field.Name)
 // - tagMapFunc processes tag values. Useful for e.g. json because of "name,omitempty"
 func getMapping(t reflect.Type, tagName string, mapFunc, tagMapFunc mapf) *StructMap {
-	var m []*FieldInfo
+	var fieldInfoList []*FieldInfo
 	root := &FieldInfo{}
 	queue := []typeQueue{
 		{derefType(t), root, ""},
@@ -128,82 +128,85 @@ func getMapping(t reflect.Type, tagName string, mapFunc, tagMapFunc mapf) *Struc
 
 	for len(queue) != 0 {
 		// pop the first item off of the queue
-		tq := queue[0]
+		current := queue[0]
 		queue = queue[1:]
 
-		if tq.fi.IsRecursive() {
+		if current.fieldInfo.IsRecursive() {
 			continue
 		}
 
-		// if tq.t is a struct, populate tq.fi.Children with its fields
+		// if current.typ is a struct, populate current.fieldInfo.Children with its fields
 		nChildren := 0
-		if tq.t.Kind() == reflect.Struct {
-			nChildren = tq.t.NumField()
+		if current.typ.Kind() == reflect.Struct {
+			nChildren = current.typ.NumField()
 		}
-		tq.fi.Children = make([]*FieldInfo, nChildren)
+		current.fieldInfo.Children = make([]*FieldInfo, nChildren)
 
 		// iterate through all of its fields
-		for fieldPos := 0; fieldPos < nChildren; fieldPos++ {
-			f := tq.t.Field(fieldPos)
+		for fieldPos := range nChildren {
+			field := current.typ.Field(fieldPos)
 
-			// skip unexported fields that aren't embedded structs
-			if !f.IsExported() && !f.Anonymous {
+			// skip unexported non-embedded fields. Unexported fields embedded by
+			// value are kept: their exported children are promoted and mappable.
+			// Unexported fields embedded by pointer are skipped: the scan target
+			// is always a fresh allocation so the pointer is always nil, and
+			// reflect will not let us Set it.
+			if !field.IsExported() && (!field.Anonymous || field.Type.Kind() == reflect.Pointer) {
 				continue
 			}
 
 			// parse the tag and the target name using the mapping options for this field
-			tag, name := parseName(f, tagName, mapFunc, tagMapFunc)
+			tag, name := parseName(field, tagName, mapFunc, tagMapFunc)
 
 			// if the name is "-", disabled via a tag, skip it
 			if name == "-" {
 				continue
 			}
 
-			fi := FieldInfo{
-				Field: f,
+			fieldInfo := FieldInfo{
+				Field: field,
 				Name:  name,
-				Zero:  reflect.New(f.Type).Elem(),
+				Zero:  reflect.New(field.Type).Elem(),
 			}
 
 			// if the path is empty this path is just the name
-			if tq.parentPath == "" {
-				fi.Path = fi.Name
+			if current.parentPath == "" {
+				fieldInfo.Path = fieldInfo.Name
 			} else {
-				fi.Path = tq.parentPath + "." + fi.Name
+				fieldInfo.Path = current.parentPath + "." + fieldInfo.Name
 			}
 
 			// bfs search of anonymous embedded structs
-			if f.Anonymous {
+			if field.Anonymous {
 				// if embedded with no tag, the path is the parent path
-				pp := tq.parentPath
+				pp := current.parentPath
 				if tag != "" {
-					pp = fi.Path
+					pp = fieldInfo.Path
 				}
 
-				fi.Embedded = true
-
-				fi.Traversal = append(slices.Clone(tq.fi.Traversal), fieldPos)
+				fieldInfo.Embedded = true
+				fieldInfo.Traversal = append(slices.Clone(current.fieldInfo.Traversal), fieldPos)
 				nChildren := 0
-				ft := derefType(f.Type)
+				ft := derefType(field.Type)
 				if ft.Kind() == reflect.Struct {
 					nChildren = ft.NumField()
 				}
-				fi.Children = make([]*FieldInfo, nChildren)
-				queue = append(queue, typeQueue{derefType(f.Type), &fi, pp})
-			} else if fi.IsStruct() {
-				fi.Traversal = append(slices.Clone(tq.fi.Traversal), fieldPos)
-				fi.Children = make([]*FieldInfo, derefType(f.Type).NumField())
-				queue = append(queue, typeQueue{derefType(f.Type), &fi, fi.Path})
+				fieldInfo.Children = make([]*FieldInfo, nChildren)
+				queue = append(queue, typeQueue{derefType(field.Type), &fieldInfo, pp})
+			} else if fieldInfo.IsStruct() {
+				fieldInfo.Traversal = append(slices.Clone(current.fieldInfo.Traversal), fieldPos)
+				fieldInfo.Children = make([]*FieldInfo, derefType(field.Type).NumField())
+				queue = append(queue, typeQueue{derefType(field.Type), &fieldInfo, fieldInfo.Path})
 			}
 
-			fi.Traversal = append(slices.Clone(tq.fi.Traversal), fieldPos)
-			fi.Parent = tq.fi
-			tq.fi.Children[fieldPos] = &fi
-			m = append(m, &fi)
+			fieldInfo.Traversal = append(slices.Clone(current.fieldInfo.Traversal), fieldPos)
+			fieldInfo.Parent = current.fieldInfo
+			current.fieldInfo.Children[fieldPos] = &fieldInfo
+			fieldInfoList = append(fieldInfoList, &fieldInfo)
 		}
 	}
 
-	return buildStructMap(root, m)
+	return buildStructMap(root, fieldInfoList)
 }
 
 func buildStructMap(root *FieldInfo, index []*FieldInfo) *StructMap {
