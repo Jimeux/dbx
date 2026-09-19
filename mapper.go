@@ -37,9 +37,9 @@ func (f *FieldInfo) IsStruct() bool {
 
 // A StructMap is an index of field metadata for a struct.
 type StructMap struct {
-	Tree  *FieldInfo // tree of fields in the struct, including nested and embedded fields
+	Tree  *FieldInfo // tree of fields, incl. nested and embedded. Children is positional, so skipped fields are nil
 	Index []*FieldInfo
-	Names map[string]*FieldInfo // index of field name (extracted from tag or mapFunc) to FieldInfo
+	Names map[string]*FieldInfo // index of qualified field name (extracted from tag or mapFunc) to FieldInfo
 }
 
 // Mapper is a general purpose mapper of names to struct fields.  A Mapper
